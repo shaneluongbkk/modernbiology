@@ -66,6 +66,9 @@ public:
     }
 
     Matrix backward(Matrix& dy, const double lrate = 0.01){
+        // Maybe refer to this file for detailed explanations
+        // https://drive.google.com/file/d/1ldvjiYQn7e9bTNZwEDMFm4yuKJMhah09/view?usp=sharing
+        
         Matrix dz;
         dz.resize(num_words, Array(N, 0));
         vector<vector<double>> Jacobi(N, vector<double>(N, 0));
