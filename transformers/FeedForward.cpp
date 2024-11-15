@@ -1,107 +1,88 @@
-#include <cmath>
-#include <algorithm>
-#include <iostream>
-#include <vector>
-#include <stdexcept>
-
+#include "FeedForward.h"
+#include <cmath>    // log
+#include <iostream> // cout
 using namespace std;
 
-// Define Matrix and Array types
-using Matrix = std::vector<std::vector<double>>;
-using Array = std::vector<double>;
-
-// Linear function for feedforward layer with bias
-Matrix Linear(const Matrix &input, const Matrix &W, double b)
-{
-    size_t M = input.size(); // Number of rows in input
-    size_t N = W[0].size();  // Number of columns in W (output size)
-    size_t P = W.size();     // Number of rows in W (input size)
-
-    Matrix output(M, std::vector<double>(N, b)); // Initialize output with bias
-    for (size_t i = 0; i < M; i++)
-        for (size_t j = 0; j < N; j++)
-            for (size_t k = 0; k < P; k++)
-                output[i][j] += input[i][k] * W[k][j];
-    return output;
+FeedForward::FeedForward(double **input, double **output, double **W_in, double **W_out, double b1, double b2)
+: input(input), output(output), W_in(W_in), W_out(W_out), b1(b1), b2(b2) {
+    for (size_t i = 0; i < Nsamples; ++i) hidden[i] = new double[d_ff];
 }
 
-// FeedForward function, returning a single Matrix
-Matrix FeedForward(const Matrix &input,
-                   const Matrix &W1, const Array &b1,
-                   const Matrix &W2, const Array &b2,
-                   bool use_bias)
-{
-    size_t M = input.size();
-    size_t d_ff = W1[0].size();    // Number of columns in W1 (output dimension of first layer)
-    size_t d_model = W2[0].size(); // Number of columns in W2 (output dimension of second layer)
+FeedForward::~FeedForward() { for (size_t i = 0; i < Nsamples; ++i) delete[] hidden[i]; }
 
-    // Apply the first linear transformation and add bias
-    Matrix h = Linear(input, W1, use_bias ? b1[0] : 0.0);
+void FeedForward::Forward() {
+    // Prep for second linear
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (size_t j = 0; j < d_model; ++j) output[i][j] = b2;
+    }
 
-    // Apply ReLU activation function
-    for (size_t i = 0; i < M; i++)
-        for (size_t j = 0; j < d_ff; j++)
-            h[i][j] = std::max(0.0, h[i][j]);
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (size_t j = 0; j < d_ff; ++j) {
+            // first linear
+            hidden[i][j] = b1;
+            for (size_t k = 0; k < d_model; ++k) hidden[i][j] += input[i][k] * W_in[k][j];
 
-    // Apply the second linear transformation and add bias
-    Matrix output = Linear(h, W2, use_bias ? b2[0] : 0.0);
+            // ReLU
+            if (hidden[i][j] < 0) hidden[i][j] = 0;
 
-    return output; // Returning a single Matrix
+            // second linear
+            for (size_t k = 0; k < d_model; ++k) output[i][k] += hidden[i][j] * W_out[j][k];
+        }
+    }
 }
 
-// Utility function to create a random matrix
-Matrix createRandomMatrix(size_t rows, size_t cols)
-{
-    Matrix mat(rows, std::vector<double>(cols));
-    for (size_t i = 0; i < rows; i++)
-        for (size_t j = 0; j < cols; j++)
-            mat[i][j] = (rand() % 100) / 100.0; // Random number between 0 and 1
-    return mat;
+void FeedForward::Backward(const double **target) {
+    // loss = (target * log(output)).sum()
+    double loss = 0;
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (int j = 0; j < d_model; ++j) loss += target[i][j] * log(output[i][j]);
+    }
+    cout << "Loss: " << loss << '\n';
+
+    // d_output = target / (output * total)
+    // b2 -= learning_rate * d_b2.sum()
+    double d_output[Nsamples][d_model];
+    size_t total = Nsamples * d_model;
+    double d_b2 = 0;
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (int j = 0; j < d_model; ++j) {
+            d_output[i][j] = target[i][j] / (output[i][j] * total);
+            d_b2 += d_output[i][j];
+        }
+    }
+    b2 -= learning_rate * d_b2;
+
+    // W_out -= learning_rate * Transpose(hidden) * d_output
+    for (int i = 0; i < d_ff; ++i) {
+        for (int j = 0; j < d_model; ++j) {
+            double d_W_out = 0;
+            for (int k = 0; k < Nsamples; ++k) {
+                d_W_out += hidden[k][i] * d_output[k][j];
+            }
+            W_out[i][j] -= learning_rate * d_W_out;
+        }
+    }
+
+    // d_hidden = (d_output * Transpose(W_out)) x (hidden > 0)
+    // b1 -= learning_rate * d_hidden.sum()
+    double d_hidden[Nsamples][d_ff];
+    double d_b1 = 0;
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (int j = 0; j < d_ff; ++j) {
+            d_hidden[i][j] = 0;
+            if (hidden[i][j] == 0) continue;
+            for (int k = 0; k < d_model; ++k) d_hidden[i][j] += d_output[i][k] * W_out[j][k];
+            d_b1 += d_hidden[i][j];
+        }
+    }
+    b1 -= learning_rate * d_b1;
+
+    // W_in -= learning_rate * Transpose(input) * d_hidden
+    for (size_t i = 0; i < Nsamples; ++i) {
+        for (int j = 0; j < d_ff; ++j) {
+            double d_W_in = 0;
+            for (int k = 0; k < Nsamples; ++k) d_W_in += d_hidden[k][j] * input[k][i];
+            W_in[i][j] -= learning_rate * d_W_in;
+        }
+    }
 }
-
-// Utility function to create a random vector
-Array createRandomVector(size_t size)
-{
-    Array vec(size);
-    for (size_t i = 0; i < size; i++)
-        vec[i] = (rand() % 100) / 100.0; // Random number between 0 and 1
-    return vec;
-}
-
-// int main()
-// {
-//     // Define weights and biases
-//     Matrix W1 = {{0.6, 0.1, 0.2, 0.7},
-//                  {0.4, 0.3, 0.7, 0.3},
-//                  {0.8, 0.4, 0.9, 0.4}};
-
-//     Matrix W2 = {
-//         {0.1, 0.3, 0.5},
-//         {0.5, 0.5, 0.6},
-//         {0.6, 0.1, 0.8},
-//         {0.7, 0.8, 0.1}};
-
-//     // Biases must match the number of output neurons for W1 and W2
-//     Array b1 = {0.3, 0.3, 0.3, 0.3}; // Biases for W1
-//     Array b2 = {0.2, 0.2, 0.2};      // Biases for W2
-
-//     // Input matrices
-//     Matrix input = {
-//         {0.5, 0.7, 0.2},
-//         {0.4, 0.2, 0.1},
-//         {0.9, 0.4, 0.8}};
-
-//     // Call FeedForward
-//     bool use_bias = true; // Set to true to use biases
-//     auto output = FeedForward(input, W1, b1, W2, b2, use_bias);
-
-//     // Print output
-//     for (const auto &mat : output)
-//     {
-//         for (const auto &val : mat)
-//             cout << val << " ";
-//         cout << endl;
-//     }
-
-//     return 0;
-// }
