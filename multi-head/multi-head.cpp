@@ -4,7 +4,7 @@
 
 using namespace std;
 
-const int EMBEDDING_DIM = 16;
+const int EMBEDDING_DIM = 8;
 const int MAX_POSITION = 1000;
 const int NUM_HEADS = 8;
 const int HEAD_DIM = EMBEDDING_DIM / NUM_HEADS;
