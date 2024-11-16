@@ -4,169 +4,153 @@
 
 using namespace std;
 
-const int EMBEDDING_DIM = 8;
+const int EMBEDDING_DIM = 16;
 const int MAX_POSITION = 1000;
 const int NUM_HEADS = 8;
 const int HEAD_DIM = EMBEDDING_DIM / NUM_HEADS;
 
-class HEAD {
-public:
-    int rows, cols;
-    float** data;
+// Allocate a 2D matrix dynamically
+float** allocateMatrix(int rows, int cols) {
+    float** matrix = new float*[rows];
+    for (int i = 0; i < rows; ++i) {
+        matrix[i] = new float[cols]();
+    }
+    return matrix;
+}
 
-    // Constructor
-    HEAD(int r, int c) : rows(r), cols(c) {
-        data = new float*[rows];
-        for (int i = 0; i < rows; ++i) {
-            data[i] = new float[cols]();
+// Deallocate a 2D matrix
+void deallocateMatrix(float** matrix, int rows) {
+    for (int i = 0; i < rows; ++i) {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
+
+// Randomize a matrix
+void randomizeMatrix(float** matrix, int rows, int cols) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            matrix[i][j] = static_cast<float>(rand()) / RAND_MAX;
         }
     }
+}
 
-    // Copy constructor
-    HEAD(const HEAD& other) : rows(other.rows), cols(other.cols) {
-        data = new float*[rows];
-        for (int i = 0; i < rows; ++i) {
-            data[i] = new float[cols];
-            for (int j = 0; j < cols; ++j) {
-                data[i][j] = other.data[i][j];
+// Multiply two matrices
+float** multiplyMatrices(float** A, int A_rows, int A_cols, float** B, int B_rows, int B_cols) {
+    if (A_cols != B_rows) {
+        throw invalid_argument("Matrix dimensions do not match for multiplication.");
+    }
+
+    // Allocate the result matrix
+    float** result = allocateMatrix(A_rows, B_cols);
+
+    // Matrix multiplication
+    for (int i = 0; i < A_rows; ++i) {
+        for (int j = 0; j < B_cols; ++j) {
+            for (int k = 0; k < A_cols; ++k) {
+                result[i][j] += A[i][k] * B[k][j];
             }
         }
     }
 
-    // Destructor
-    ~HEAD() {
-        for (int i = 0; i < rows; ++i) {
-            delete[] data[i];
-        }
-        delete[] data;
-    }
+    return result;
+}
 
-    HEAD operator+(const HEAD& other) const {
-        if (rows != other.rows || cols != other.cols) {
-            throw invalid_argument("HEAD dimensions do not match for addition.");
+// Print a matrix
+void printMatrix(float** matrix, int rows, int cols) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            cout << matrix[i][j] << " ";
         }
-        HEAD result(rows, cols);
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                result.data[i][j] = data[i][j] + other.data[i][j];
-        return result;
+        cout << endl;
     }
+}
 
-    HEAD operator*(const HEAD& other) const {
-        if (cols != other.rows) {
-            throw invalid_argument("HEAD dimensions do not match for multiplication.");
-        }
-        HEAD result(rows, other.cols);
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < other.cols; ++j) {
-                for (int k = 0; k < cols; ++k) {
-                    result.data[i][j] += data[i][k] * other.data[k][j];
-                }
-            }
-        }
-        return result;
-    }
-
-    void randomizeHEAD() {
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                data[i][j] = static_cast<float>(rand()) / RAND_MAX;
-            }
-        }
-    }
-
-    HEAD transpose() const {
-        HEAD result(cols, rows);
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                result.data[j][i] = data[i][j];
-        return result;
-    }
-
-    void print() const {
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                cout << data[i][j] << " ";
-            }
-            cout << endl;
-        }
-    }
-};
-
-// MultiHead Attention generation
-void generate_multihead_qkv(const HEAD& input_embedding, HEAD* Q_heads[], HEAD* K_heads[], HEAD* V_heads[]) {
-    HEAD* W_Q_heads[NUM_HEADS];
-    HEAD* W_K_heads[NUM_HEADS];
-    HEAD* W_V_heads[NUM_HEADS];
+// Generate multihead QKV matrices
+void generateMultiheadQKV(float** input_embedding, int input_rows, int input_cols, 
+                          float*** Q_heads, float*** K_heads, float*** V_heads) {
+    float*** W_Q_heads = new float**[NUM_HEADS];
+    float*** W_K_heads = new float**[NUM_HEADS];
+    float*** W_V_heads = new float**[NUM_HEADS];
 
     for (int h = 0; h < NUM_HEADS; ++h) {
-        W_Q_heads[h] = new HEAD(EMBEDDING_DIM, HEAD_DIM);
-        W_K_heads[h] = new HEAD(EMBEDDING_DIM, HEAD_DIM);
-        W_V_heads[h] = new HEAD(EMBEDDING_DIM, HEAD_DIM);
+        // Allocate W_Q, W_K, W_V matrices
+        W_Q_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
+        W_K_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
+        W_V_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
 
-        W_Q_heads[h]->randomizeHEAD();
-        W_K_heads[h]->randomizeHEAD();
-        W_V_heads[h]->randomizeHEAD();
+        // Randomize weight matrices
+        randomizeMatrix(W_Q_heads[h], input_cols, HEAD_DIM);
+        randomizeMatrix(W_K_heads[h], input_cols, HEAD_DIM);
+        randomizeMatrix(W_V_heads[h], input_cols, HEAD_DIM);
 
-        Q_heads[h] = new HEAD(input_embedding * (*W_Q_heads[h]));
-        K_heads[h] = new HEAD(input_embedding * (*W_K_heads[h]));
-        V_heads[h] = new HEAD(input_embedding * (*W_V_heads[h]));
+        // Allocate Q, K, V matrices
+        Q_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_Q_heads[h], input_cols, HEAD_DIM);
+        K_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_K_heads[h], input_cols, HEAD_DIM);
+        V_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_V_heads[h], input_cols, HEAD_DIM);
 
-        delete W_Q_heads[h];
-        delete W_K_heads[h];
-        delete W_V_heads[h];
+        // Deallocate weight matrices after use
+        deallocateMatrix(W_Q_heads[h], input_cols);
+        deallocateMatrix(W_K_heads[h], input_cols);
+        deallocateMatrix(W_V_heads[h], input_cols);
     }
+
+    // Deallocate the head matrices
+    delete[] W_Q_heads;
+    delete[] W_K_heads;
+    delete[] W_V_heads;
 }
 
-// Clean up dynamically allocated memory
-void cleanup(HEAD* heads[], int size) {
-    for (int i = 0; i < size; ++i) {
-        delete heads[i];
+int main() {
+    srand(42);
+
+    // Create and randomize the input embedding matrix
+    int input_rows = 10;
+    float** input_embedding = allocateMatrix(input_rows, EMBEDDING_DIM);
+    randomizeMatrix(input_embedding, input_rows, EMBEDDING_DIM);
+
+    // Store Q, K, V heads
+    float*** Q_heads = new float**[NUM_HEADS];
+    float*** K_heads = new float**[NUM_HEADS];
+    float*** V_heads = new float**[NUM_HEADS];
+
+    // Generate the Q, K, V heads from the input embedding
+    generateMultiheadQKV(input_embedding, input_rows, EMBEDDING_DIM, Q_heads, K_heads, V_heads);
+
+    // Print Q, K, V heads
+    cout << "Q_heads:" << endl;
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        cout << "Q_head " << h + 1 << ":" << endl;
+        printMatrix(Q_heads[h], input_rows, HEAD_DIM);
+        cout << endl;
     }
+
+    cout << "K_heads:" << endl;
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        cout << "K_head " << h + 1 << ":" << endl;
+        printMatrix(K_heads[h], input_rows, HEAD_DIM);
+        cout << endl;
+    }
+
+    cout << "V_heads:" << endl;
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        cout << "V_head " << h + 1 << ":" << endl;
+        printMatrix(V_heads[h], input_rows, HEAD_DIM);
+        cout << endl;
+    }
+
+    // Clean up dynamically allocated memory
+    deallocateMatrix(input_embedding, input_rows);
+
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        deallocateMatrix(Q_heads[h], input_rows);
+        deallocateMatrix(K_heads[h], input_rows);
+        deallocateMatrix(V_heads[h], input_rows);
+    }
+
+    delete[] Q_heads;
+    delete[] K_heads;
+    delete[] V_heads;
+
+    return 0;
 }
-
-// int main() {
-//     srand(42);
-
-//     // Tạo và khởi tạo ngẫu nhiên ma trận input_embedding
-//     HEAD input_embedding(10, EMBEDDING_DIM);
-//     input_embedding.randomizeHEAD();
-
-//     // Tạo các mảng để lưu trữ các HEAD cho Q, K, V
-//     HEAD* Q_heads[NUM_HEADS];
-//     HEAD* K_heads[NUM_HEADS];
-//     HEAD* V_heads[NUM_HEADS];
-
-//     // Sinh các HEADs cho Q, K, V từ input_embedding
-//     generate_multihead_qkv(input_embedding, Q_heads, K_heads, V_heads);
-
-//     // In ra các HEADs Q, K, V
-//     cout << "Q_heads:" << endl;
-//     for (int h = 0; h < NUM_HEADS; ++h) {
-//         cout << "Q_head " << h + 1 << ":" << endl;
-//         Q_heads[h]->print();
-//         cout << endl;
-//     }
-
-//     cout << "K_heads:" << endl;
-//     for (int h = 0; h < NUM_HEADS; ++h) {
-//         cout << "K_head " << h + 1 << ":" << endl;
-//         K_heads[h]->print();
-//         cout << endl;
-//     }
-
-//     cout << "V_heads:" << endl;
-//     for (int h = 0; h < NUM_HEADS; ++h) {
-//         cout << "V_head " << h + 1 << ":" << endl;
-//         V_heads[h]->print();
-//         cout << endl;
-//     }
-
-//     // Giải phóng bộ nhớ
-//     cleanup(Q_heads, NUM_HEADS);
-//     cleanup(K_heads, NUM_HEADS);
-//     cleanup(V_heads, NUM_HEADS);
-
-//     return 0;
-// }
-
