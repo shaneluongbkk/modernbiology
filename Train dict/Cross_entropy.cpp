@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <bits/stdc++.h>
 #define EMBED_SIZE 300
-
+// Because I didnt have the full model to test the back propaganation, 
+// so I created a function to make a random one-hot coding, you can skip it later
 float** generate_random_input(int num_tokens) {
     float** input = new float*[num_tokens];
     for (int i = 0; i < num_tokens; ++i) {
@@ -18,6 +19,8 @@ float** generate_random_input(int num_tokens) {
     }
     return input;
 }
+// Cross-entropy in which "input" is the output of the previous layer, 
+// "target" is the one hot coding matrix from test file
 float cross_entropy_loss(float** input, float** target, int num_tokens, int embed_size) {
     float loss = 0.0;
     for (int i = 0; i < num_tokens; ++i) {
