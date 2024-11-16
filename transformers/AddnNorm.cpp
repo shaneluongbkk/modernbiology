@@ -15,7 +15,7 @@ private:
     Matrix &prev, &orig, &orig_grad;
     Array gamma, beta, mu, sigma;
     int num_words;
-    const int N = 512; // size
+    int N; // size
 
     void matmul(const Array& A, const Matrix& B, Array& C){
         for (int i = 0; i < N; ++i)
@@ -25,7 +25,7 @@ private:
     }
 
 public:
-    AddnNorm(Matrix &prev, Matrix &orig, Matrix &orig_grad, int num_words) : prev(prev), orig(orig), orig_grad(orig_grad), num_words(num_words) {
+    AddnNorm(Matrix &prev, Matrix &orig, Matrix &orig_grad, int num_words, int N) : prev(prev), orig(orig), orig_grad(orig_grad), num_words(num_words), N(N) {
         gamma=new double[num_words];
         beta=new double[num_words];
         mu=new double[num_words];
@@ -145,51 +145,51 @@ void freeMatrix(Matrix mat, int rows){
     delete[] mat;
 }
 
-// int main(){
-//     srand(static_cast<unsigned>(time(NULL)));
-//     int rows=2,cols=3;
+int main(){
+    srand(static_cast<unsigned>(time(NULL)));
+    int rows=2,cols=3;
 
-//     Matrix A = new double*[rows];
-//     A[0] = new double[cols]{1, 2, 3};
-//     A[1] = new double[cols]{3, 4, 5};
+    Matrix A = new double*[rows];
+    A[0] = new double[cols]{1, 2, 3};
+    A[1] = new double[cols]{3, 4, 5};
 
-//     Matrix orig = new double*[rows];
-//     orig[0] = new double[cols]{1, -1, 0.2};
-//     orig[1] = new double[cols]{0.4, 2.3, 2.1};
+    Matrix orig = new double*[rows];
+    orig[0] = new double[cols]{1, -1, 0.2};
+    orig[1] = new double[cols]{0.4, 2.3, 2.1};
 
-//     Matrix orig_grad = new double*[rows];
-//     for (int i = 0; i < rows; ++i) {
-//         orig_grad[i] = new double[cols]{0, 0, 0};
-//     }
+    Matrix orig_grad = new double*[rows];
+    for (int i = 0; i < rows; ++i) {
+        orig_grad[i] = new double[cols]{0, 0, 0};
+    }
 
-//     double gamma[] = {2.2, 1};
-//     double beta[] = {1.1, 0.6};
+    double gamma[] = {2.2, 1};
+    double beta[] = {1.1, 0.6};
 
-//     AddnNorm addn(A, orig, orig_grad, rows);
-//     auto X = addn.forward();
-//     cout << "Forward pass: \n";
-//     for(int i=0;i<rows;i++){
-//         for(int j=0;j<cols;j++) cout<<X[i][j]<<" ";
-//         cout<<'\n';
-//     }
+    AddnNorm addn(A, orig, orig_grad, rows, cols);
+    auto X = addn.forward();
+    cout << "Forward pass: \n";
+    for(int i=0;i<rows;i++){
+        for(int j=0;j<cols;j++) cout<<X[i][j]<<" ";
+        cout<<'\n';
+    }
 
-//     Matrix dY = randomizeMatrix(2, 3);
-//     cout << "dY: \n";
-//     for(int i=0;i<rows;i++){
-//         for(int j=0;j<cols;j++) cout<<dY[i][j]<<" ";
-//         cout<<'\n';
-//     }
+    Matrix dY = randomizeMatrix(2, 3);
+    cout << "dY: \n";
+    for(int i=0;i<rows;i++){
+        for(int j=0;j<cols;j++) cout<<dY[i][j]<<" ";
+        cout<<'\n';
+    }
 
-//     auto Z = addn.backward(dY, 0.1);
-//     cout << "Backward pass: \n";
-//     for(int i=0;i<rows;i++){
-//         for(int j=0;j<cols;j++) cout<<Z[i][j]<<" ";
-//         cout<<'\n';
-//     }
+    auto Z = addn.backward(dY, 0.1);
+    cout << "Backward pass: \n";
+    for(int i=0;i<rows;i++){
+        for(int j=0;j<cols;j++) cout<<Z[i][j]<<" ";
+        cout<<'\n';
+    }
 
-//     freeMatrix(A,rows);
-//     freeMatrix(orig,rows);
-//     freeMatrix(orig_grad,rows);
-//     freeMatrix(dY,rows);
-//     freeMatrix(Z,rows);
-// }
+    freeMatrix(A,rows);
+    freeMatrix(orig,rows);
+    freeMatrix(orig_grad,rows);
+    freeMatrix(dY,rows);
+    freeMatrix(Z,rows);
+}
