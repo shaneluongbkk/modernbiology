@@ -1,195 +1,257 @@
-#ifndef MULTIHEAD
-#define MULTIHEAD
 #include <iostream>
-#include <cmath>
 #include <cstdlib>
 #include <stdexcept>
-#include <ctime>
+#include <cmath>
 
 using namespace std;
 
-const int EMBEDDING_DIM = 200;
+const int EMBEDDING_DIM = 8; // 512
 const int MAX_POSITION = 1000;
-const int NUM_HEADS = 8;
+const int NUM_HEADS = 1;
 const int HEAD_DIM = EMBEDDING_DIM / NUM_HEADS;
+const float LEARNING_RATE = 0.1f;
 
-class HEAD {
-public:
-    int rows, cols;
-    double** data;
-
-    HEAD(int r = 0, int c = 0) : rows(r), cols(c) {
-        allocateMemory();
-        initializeToZero();
+// Allocate a 2D matrix dynamically
+float** allocateMatrix(int rows, int cols) {
+    float** matrix = new float*[rows];
+    for (int i = 0; i < rows; ++i) {
+        matrix[i] = new float[cols]();
     }
-
-    HEAD(const HEAD& other) : rows(other.rows), cols(other.cols) {
-        allocateMemory();
-        copyData(other.data);
-    }
-
-    ~HEAD() { freeMemory(); }
-
-    HEAD& operator=(const HEAD& other) {
-        if (this != &other) {
-            freeMemory();
-            rows = other.rows;
-            cols = other.cols;
-            allocateMemory();
-            copyData(other.data);
-        }
-        return *this;
-    }
-
-    HEAD operator+(const HEAD& other) const {
-        if (rows != other.rows || cols != other.cols) {
-            throw invalid_argument("HEAD dimensions do not match for addition.");
-        }
-        HEAD result(rows, cols);
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                result.data[i][j] = data[i][j] + other.data[i][j];
-        return result;
-    }
-
-    HEAD operator*(const HEAD& other) const {
-        if (cols != other.rows) {
-            throw invalid_argument("HEAD dimensions do not match for multiplication.");
-        }
-        HEAD result(rows, other.cols);
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < other.cols; ++j)
-                for (int k = 0; k < cols; ++k)
-                    result.data[i][j] += data[i][k] * other.data[k][j];
-        return result;
-    }
-
-    HEAD transpose() const {
-        HEAD result(cols, rows);
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                result.data[j][i] = data[i][j];
-        return result;
-    }
-
-    void print() const {
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                cout << data[i][j] << " ";
-            }
-            cout << endl;
-        }
-    }
-
-private:
-    void allocateMemory() {
-        data = new double* [rows];
-        for (int i = 0; i < rows; ++i) {
-            data[i] = new double[cols];
-        }
-    }
-
-    void freeMemory() {
-        if (data) {
-            for (int i = 0; i < rows; ++i) {
-                delete[] data[i];
-            }
-            delete[] data;
-            data = nullptr;
-        }
-    }
-
-    void initializeToZero() {
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                data[i][j] = 0.0;
-    }
-
-    void copyData(double** src) {
-        for (int i = 0; i < rows; ++i)
-            for (int j = 0; j < cols; ++j)
-                data[i][j] = src[i][j];
-    }
-};
-
-void randomizeHEAD(HEAD& matrix) {
-    for (int i = 0; i < matrix.rows; i++)
-        for (int j = 0; j < matrix.cols; j++)
-            matrix.data[i][j] = static_cast<double>(rand()) / RAND_MAX;
+    return matrix;
 }
 
-class MultiHeadAttention {
-public:
-    HEAD* Q_heads;
-    HEAD* K_heads;
-    HEAD* V_heads;
-    HEAD* W_Q_heads;
-    HEAD* W_K_heads;
-    HEAD* W_V_heads;
+// Deallocate a 2D matrix
+void deallocateMatrix(float** matrix, int rows) {
+    for (int i = 0; i < rows; ++i) {
+        delete[] matrix[i];
+    }
+    delete[] matrix;
+}
 
-    MultiHeadAttention() {
-        Q_heads = new HEAD[NUM_HEADS];
-        K_heads = new HEAD[NUM_HEADS];
-        V_heads = new HEAD[NUM_HEADS];
-        W_Q_heads = new HEAD[NUM_HEADS];
-        W_K_heads = new HEAD[NUM_HEADS];
-        W_V_heads = new HEAD[NUM_HEADS];
+// Randomize a matrix
+void randomizeMatrix(float** matrix, int rows, int cols) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            matrix[i][j] = static_cast<float>(rand()) / RAND_MAX;
+        }
+    }
+}
 
-        for (int h = 0; h < NUM_HEADS; ++h) {
-            Q_heads[h] = HEAD(MAX_POSITION, HEAD_DIM);
-            K_heads[h] = HEAD(MAX_POSITION, HEAD_DIM);
-            V_heads[h] = HEAD(MAX_POSITION, HEAD_DIM);
-            W_Q_heads[h] = HEAD(EMBEDDING_DIM, HEAD_DIM);
-            W_K_heads[h] = HEAD(EMBEDDING_DIM, HEAD_DIM);
-            W_V_heads[h] = HEAD(EMBEDDING_DIM, HEAD_DIM);
+// Multiply two matrices
+float** multiplyMatrices(float** A, int A_rows, int A_cols, float** B, int B_rows, int B_cols) {
+    if (A_cols != B_rows) {
+        throw invalid_argument("Matrix dimensions do not match for multiplication.");
+    }
+
+    // Allocate the result matrix
+    float** result = allocateMatrix(A_rows, B_cols);
+
+    // Matrix multiplication
+    for (int i = 0; i < A_rows; ++i) {
+        for (int j = 0; j < B_cols; ++j) {
+            for (int k = 0; k < A_cols; ++k) {
+                result[i][j] += A[i][k] * B[k][j];
+            }
         }
     }
 
-    ~MultiHeadAttention() {
-        delete[] Q_heads;
-        delete[] K_heads;
-        delete[] V_heads;
-        delete[] W_Q_heads;
-        delete[] W_K_heads;
-        delete[] W_V_heads;
+    return result;
+}
+
+// Print a matrix
+void printMatrix(float** matrix, int rows, int cols) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
     }
+}
 
-    void forward(const HEAD& input_embedding) {
-        generate_multihead_qkv(input_embedding);
+// Forward function: generates Q, K, V and computes attention scores
+void forward(float** input_embedding, int input_rows, int input_cols, 
+             float*** Q_heads, float*** K_heads, float*** V_heads, 
+             float*** W_Q_heads, float*** W_K_heads, float*** W_V_heads, 
+             float*** attention_scores) {
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        // Allocate weight matrices
+        W_Q_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
+        W_K_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
+        W_V_heads[h] = allocateMatrix(input_cols, HEAD_DIM);
+
+        // Randomize weight matrices
+        randomizeMatrix(W_Q_heads[h], input_cols, HEAD_DIM);
+        randomizeMatrix(W_K_heads[h], input_cols, HEAD_DIM);
+        randomizeMatrix(W_V_heads[h], input_cols, HEAD_DIM);
+
+        // Generate Q, K, V matrices
+        Q_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_Q_heads[h], input_cols, HEAD_DIM);
+        K_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_K_heads[h], input_cols, HEAD_DIM);
+        V_heads[h] = multiplyMatrices(input_embedding, input_rows, input_cols, W_V_heads[h], input_cols, HEAD_DIM);
+
+        // Compute attention scores: Q * K^T
+        float** K_transpose = allocateMatrix(HEAD_DIM, input_rows);
+        for (int i = 0; i < HEAD_DIM; ++i) {
+            for (int j = 0; j < input_rows; ++j) {
+                K_transpose[i][j] = K_heads[h][j][i];
+            }
+        }
+        attention_scores[h] = multiplyMatrices(Q_heads[h], input_rows, HEAD_DIM, K_transpose, HEAD_DIM, input_rows);
+
+        // Clean up temporary K_transpose
+        deallocateMatrix(K_transpose, HEAD_DIM);
     }
+}
 
-    void backward(HEAD* delta_attention_score, HEAD* delta_V_heads, const HEAD& input_embedding) {
-        HEAD* delta_Q_heads = new HEAD[NUM_HEADS];
-        HEAD* delta_K_heads = new HEAD[NUM_HEADS];
+// Backward function: computes gradients and updates weights
+void backward(float** input_embedding, int input_rows, int input_cols, 
+              float*** Q_heads, float*** K_heads, float*** V_heads, 
+              float*** W_Q_heads, float*** W_K_heads, float*** W_V_heads, 
+              float*** attention_scores, float*** d_attention_scores, 
+              float*** d_V) {
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        // Compute gradients with respect to Q and K
+        float** d_Q = allocateMatrix(input_rows, HEAD_DIM);
+        float** d_K = allocateMatrix(input_rows, HEAD_DIM);
 
-        //derivative
-        for (int h = 0; h < NUM_HEADS; ++h) {
-            delta_Q_heads[h] = delta_attention_score[h] * K_heads[h];
-            delta_K_heads[h] = delta_attention_score[h].transpose() * Q_heads[h];
+        // Backpropagate through the attention score:
+        // dQ = d_attention_scores * K^T
+        // dK = (d_attention_scores)^T * Q
+        for (int i = 0; i < input_rows; ++i) {
+            for (int j = 0; j < input_rows; ++j) {
+                for (int k = 0; k < HEAD_DIM; ++k) {
+                    d_Q[i][k] += d_attention_scores[h][i][j] * K_heads[h][j][k];
+                    d_K[i][k] += d_attention_scores[h][j][i] * Q_heads[h][j][k];
+                }
+            }
         }
 
-        for (int h = 0; h < NUM_HEADS; ++h) {
-            W_Q_heads[h] = input_embedding.transpose() * delta_Q_heads[h];
-            W_K_heads[h] = input_embedding.transpose() * delta_K_heads[h];
-            W_V_heads[h] = input_embedding.transpose() * delta_V_heads[h];
+        // Compute gradients for W_Q, W_K, and W_V
+        float** d_W_Q = allocateMatrix(input_cols, HEAD_DIM);
+        float** d_W_K = allocateMatrix(input_cols, HEAD_DIM);
+        float** d_W_V = allocateMatrix(input_cols, HEAD_DIM);
+
+        // dW_Q = input_embedding^T * d_Q
+        for (int i = 0; i < input_cols; ++i) {
+            for (int j = 0; j < HEAD_DIM; ++j) {
+                for (int k = 0; k < input_rows; ++k) {
+                    d_W_Q[i][j] += input_embedding[k][i] * d_Q[k][j];
+                }
+            }
         }
 
-        delete[] delta_Q_heads;
-        delete[] delta_K_heads;
-    }
-
-private:
-    void generate_multihead_qkv(const HEAD& input_embedding) {
-        for (int h = 0; h < NUM_HEADS; ++h) {
-            randomizeHEAD(W_Q_heads[h]);
-            randomizeHEAD(W_K_heads[h]);
-            randomizeHEAD(W_V_heads[h]);
-
-            Q_heads[h] = input_embedding * W_Q_heads[h];
-            K_heads[h] = input_embedding * W_K_heads[h];
-            V_heads[h] = input_embedding * W_V_heads[h];
+        // dW_K = input_embedding^T * d_K
+        for (int i = 0; i < input_cols; ++i) {
+            for (int j = 0; j < HEAD_DIM; ++j) {
+                for (int k = 0; k < input_rows; ++k) {
+                    d_W_K[i][j] += input_embedding[k][i] * d_K[k][j];
+                }
+            }
         }
-    }
-};
 
-#endif
+        // dW_V = input_embedding^T * d_V[h]
+        for (int i = 0; i < input_cols; ++i) {
+            for (int j = 0; j < HEAD_DIM; ++j) {
+                for (int k = 0; k < input_rows; ++k) {
+                    d_W_V[i][j] += input_embedding[k][i] * d_V[h][k][j];
+                }
+            }
+        }
+
+        // Update weights using the gradients
+        for (int i = 0; i < input_cols; ++i) {
+            for (int j = 0; j < HEAD_DIM; ++j) {
+                W_Q_heads[h][i][j] -= LEARNING_RATE * d_W_Q[i][j];
+                W_K_heads[h][i][j] -= LEARNING_RATE * d_W_K[i][j];
+                W_V_heads[h][i][j] -= LEARNING_RATE * d_W_V[i][j];
+            }
+        }
+
+        // Clean up gradients
+        deallocateMatrix(d_Q, input_rows);
+        deallocateMatrix(d_K, input_rows);
+        deallocateMatrix(d_W_Q, input_cols);
+        deallocateMatrix(d_W_K, input_cols);
+        deallocateMatrix(d_W_V, input_cols);
+    }
+}
+
+
+
+int main() {
+    srand(42);
+
+    // Create and randomize the input embedding matrix
+    int input_rows = 10;
+    float** input_embedding = allocateMatrix(input_rows, EMBEDDING_DIM);
+    randomizeMatrix(input_embedding, input_rows, EMBEDDING_DIM);
+
+    // Arrays to store Q, K, V heads and their weight matrices
+    float*** Q_heads = new float**[NUM_HEADS];
+    float*** K_heads = new float**[NUM_HEADS];
+    float*** V_heads = new float**[NUM_HEADS];
+    float*** W_Q_heads = new float**[NUM_HEADS];
+    float*** W_K_heads = new float**[NUM_HEADS];
+    float*** W_V_heads = new float**[NUM_HEADS];
+    
+    float*** attention_scores = new float**[NUM_HEADS];
+    float*** d_attention_scores = new float**[NUM_HEADS]; 
+    float*** d_V = new float**[NUM_HEADS];
+
+    forward(input_embedding, input_rows, EMBEDDING_DIM, Q_heads, K_heads, V_heads, 
+            W_Q_heads, W_K_heads, W_V_heads, attention_scores);
+
+
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        d_attention_scores[h] = allocateMatrix(input_rows, input_rows);
+        randomizeMatrix(d_attention_scores[h], input_rows, input_rows); // Random values
+    }
+
+    // Backward pass
+    for (int i = 0; i < NUM_HEADS; i++)
+    {
+        d_V[i] = allocateMatrix(input_rows, HEAD_DIM);
+        randomizeMatrix(d_V[i], input_rows, HEAD_DIM);
+    }
+    
+    
+    cout << "W_Q_heads before backward\n";
+    for (int i = 0; i < NUM_HEADS; i++)
+    {
+        cout << "W_Q_heads " << i << "th\n";
+        printMatrix(W_Q_heads[i], EMBEDDING_DIM, HEAD_DIM);
+    }
+    backward(input_embedding, input_rows, EMBEDDING_DIM, Q_heads, K_heads, V_heads, 
+             W_Q_heads, W_K_heads, W_V_heads, attention_scores, d_attention_scores, d_V);
+    
+    cout << "W_Q_heads after backward\n";
+    for (int i = 0; i < NUM_HEADS; i++)
+    {
+        cout << "W_Q_heads " << i << "th\n";
+        printMatrix(W_Q_heads[i], EMBEDDING_DIM, HEAD_DIM);
+    }
+    
+    
+    deallocateMatrix(input_embedding, input_rows);
+
+    for (int h = 0; h < NUM_HEADS; ++h) {
+        deallocateMatrix(Q_heads[h], input_rows);
+        deallocateMatrix(K_heads[h], input_rows);
+        deallocateMatrix(V_heads[h], input_rows);
+        deallocateMatrix(W_Q_heads[h], EMBEDDING_DIM);
+        deallocateMatrix(W_K_heads[h], EMBEDDING_DIM);
+        deallocateMatrix(W_V_heads[h], EMBEDDING_DIM);
+        deallocateMatrix(attention_scores[h], input_rows);
+        deallocateMatrix(d_attention_scores[h], input_rows);
+    }
+
+    delete[] Q_heads;
+    delete[] K_heads;
+    delete[] V_heads;
+    delete[] W_Q_heads;
+    delete[] W_K_heads;
+    delete[] W_V_heads;
+    delete[] attention_scores;
+    delete[] d_attention_scores;
+    return 0;
+}
