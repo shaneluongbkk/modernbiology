@@ -28,8 +28,12 @@ Initializes the FeedForward layer with pointers to input/output matrices, weight
 void FeedForward::Forward();
 ```
 Computes the forward pass of the Feedforward layer using this formulation
-$$\text{hidden} = \max(0, \text{input} \cdot W_{in} + b_1)\\
-\text{output} = \text{hidden} \cdot W_{out} + b_2$$
+```math
+ \text{hidden} = \max(0, \text{input} \cdot W_{in} + b_1)
+```
+```math
+\text{output} = \text{hidden} \cdot W_{out} + b_2
+```
 The `hidden` and `output` layer are saved for backward pass.
 
 ### Backward
@@ -40,46 +44,74 @@ Computes the backward pass given the target layer and save the gradient of loss 
 #### Parameters
 `target`, `d_input`: Target matrix and gradient of the loss with respect to the input, both with size of (`nHeads`, `d_model`)
 #### Theories:
-Let $Y$, $\hat{Y}$, $H$ and $X$ be the target matrix, output matrix, hidden matrix and input matrix, respectively. Recall that
-$$H = \max(0, X \cdot W_{in} + b_1)\\
-Y = H \cdot W_{out} + b_2$$
+Let $`Y`$, $`\hat{Y}`$, $`H`$ and $`X`$ be the target matrix, output matrix, hidden matrix and input matrix, respectively. Recall that
+```math
+H = \max(0, X \cdot W_{in} + b_1)
+```
+```math
+Y = H \cdot W_{out} + b_2
+```
 Assuming the loss function is Cross-Entropy Loss Function $L$
-$${L(\hat{Y}, Y) = \frac{\sum \hat{Y_{ij}}\ln (Y_{ij})}{mn}}$$
+```math
+{L(\hat{Y}, Y) = \frac{\sum \hat{Y_{ij}}\ln (Y_{ij})}{mn}}
+```
 - **Output layer**'s derivative:
-$$ \frac{\partial Y}{\partial L} = \frac{\hat{Y}}{mnY}$$
+```math
+ \frac{\partial Y}{\partial L} = \frac{\hat{Y}}{mnY}
+```
 
 - $b_2$'s derivative:
-$$ \frac{\partial b_{2_{i}}}{\partial L} = \frac{\partial b_{2_{i}}}{\partial Y_i} \cdot \frac{\partial Y_i}{\partial L}
-= 1^{(1 \times m)} \cdot \frac{\partial Y_i}{\partial L} $$
-$$\boxed{= \sum \frac{\partial Y_{ij}}{\partial L}}$$
+```math
+ \frac{\partial b_{2_{i}}}{\partial L} = \frac{\partial b_{2_{i}}}{\partial Y_i} \cdot \frac{\partial Y_i}{\partial L}
+= 1^{(1 \times m)} \cdot \frac{\partial Y_i}{\partial L}
+```
+```math
+\boxed{= \sum \frac{\partial Y_{ij}}{\partial L}}
+```
 
 - Denote $M_{*n}$ be the $n^\text{th}$ column vector of some matrix $M$, then $W_{out}$'s derivative:
-$$ \frac{\partial W_{2_{ij}}}{\partial L} = \frac{\partial W_{2_{ij}}}{\partial Y_{*j}} 
-\cdot \frac{\partial Y_{*j}}{\partial L} = (H^T)_i \cdot \frac{\partial Y_{*j}}{\partial L} $$
-$$\implies 
-\boxed{\frac{\partial W_2}{\partial L} = H^T \cdot \frac{\partial Y}{\partial L}}$$
+```math
+\frac{\partial W_{2_{ij}}}{\partial L} = \frac{\partial W_{2_{ij}}}{\partial Y_{*j}} 
+\cdot \frac{\partial Y_{*j}}{\partial L} = (H^T)_i \cdot \frac{\partial Y_{*j}}{\partial L}
+```
+```math
+\implies 
+\boxed{\frac{\partial W_2}{\partial L} = H^T \cdot \frac{\partial Y}{\partial L}}
+```
 
 - Let $M=X \cdot W_{in} + b_1$, then $M$'s derivative:
-$$ \frac{\partial M_{ij}}{\partial L} = \frac{\partial M_{ij}}{\partial Y_i} \cdot \frac{\partial Y_i}{\partial L} =
+```math
+\frac{\partial M_{ij}}{\partial L} = \frac{\partial M_{ij}}{\partial Y_i} \cdot \frac{\partial Y_i}{\partial L} =
 ((M_{ij} \gt 0 )W_{2_j})^{T} \cdot \frac{\partial Y_i}{\partial L} = (H_{ij} \gt 0)(W_{2_j})^T \cdot \frac{\partial Y_i}{\partial L}
-$$
-$$\implies \frac{\partial M}{\partial L}
-= (H > 0) \circ (\frac{\partial Y}{\partial L} \cdot W_2^T)$$
+```
+```math
+\implies \frac{\partial M}{\partial L}
+= (H > 0) \circ (\frac{\partial Y}{\partial L} \cdot W_2^T)
+```
 
 - $b_1$'s derivative:
-$$ \frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_i} \cdot \frac{\partial M_i}{\partial L} = 1^{(1 \times p)} \cdot \frac{\partial M}{\partial L} 
-$$
-$$\boxed{= \sum \frac{\partial M_{ij}}{\partial L}}$$
+```math
+\frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_i} \cdot \frac{\partial M_i}{\partial L} = 1^{(1 \times p)} \cdot \frac{\partial M}{\partial L} 
+```
+```math
+\boxed{= \sum \frac{\partial M_{ij}}{\partial L}}
+```
 
 - $W_{in}$'s derivative:
-$$ \frac{\partial W_{1_{ij}}}{\partial L} = \frac{\partial W_{1_{ij}}}{\partial M_{*j}} \cdot \frac{\partial M_{*j}}{\partial L} = (X^T)_i \cdot \frac{\partial M_{*j}}{\partial L}
-$$
-$$\implies \boxed{\frac{\partial W_1}{\partial L} = X^T \cdot \frac{\partial M}{\partial L}} $$
+```math
+\frac{\partial W_{1_{ij}}}{\partial L} = \frac{\partial W_{1_{ij}}}{\partial M_{*j}} \cdot \frac{\partial M_{*j}}{\partial L} = (X^T)_i \cdot \frac{\partial M_{*j}}{\partial L}
+```
+```math
+\implies \boxed{\frac{\partial W_1}{\partial L} = X^T \cdot \frac{\partial M}{\partial L}}
+```
 
 - **Input Layer**'s derivative:
-$$ \frac{\partial X_{ij}}{\partial L} = \frac{\partial X_{ij}}{\partial M_i} \cdot \frac{\partial M_i}{\partial L} = (W_{1_j})^T \cdot \frac{\partial M_i}{\partial L} 
-$$
-$$\implies \boxed{\frac{\partial X}{\partial L} = \frac{\partial M}{\partial L} \cdot W_1^T}$$
+```math
+\frac{\partial X_{ij}}{\partial L} = \frac{\partial X_{ij}}{\partial M_i} \cdot \frac{\partial M_i}{\partial L} = (W_{1_j})^T \cdot \frac{\partial M_i}{\partial L} 
+```
+```math
+\implies \boxed{\frac{\partial X}{\partial L} = \frac{\partial M}{\partial L} \cdot W_1^T}
+```
 
 After computing derivative of each variable, we subtract the variable with said derivative times `learning_rate` to update it.
 
