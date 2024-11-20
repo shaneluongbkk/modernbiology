@@ -1,34 +1,34 @@
 #include <cmath>    // log
 using namespace std;
 
-const int d_model = 200, d_ff = 800, nHeads = 8;
+const int d_model = 200, d_ff = 800, num_tokens = 8;
 const float learning_rate = 0.1;
 
 struct FeedForward {
 private:
-    float hidden[nHeads][d_ff];
-    float d_output[nHeads][d_model];
-    float d_hidden[nHeads][d_ff];
+    float hidden[num_tokens][d_ff];
+    float d_output[num_tokens][d_model];
+    float d_hidden[num_tokens][d_ff];
 public:
-    float **input;  // (nHeads, d_model)
-    float **output; // (nHeads, d_model)
+    float **input;  // (num_tokens, d_model)
+    float **output; // (num_tokens, d_model)
     float **W_in;   // (d_model, d_ff)
     float **W_out;  // (d_ff, d_model)
-    float *b1, *b2; // (nHeads)
+    float *b1, *b2; // (num_tokens)
 
     FeedForward(float **input, float **output, float **W_in, float **W_out, float *b1, float *b2)
     : input(input), output(output), W_in(W_in), W_out(W_out), b1(b1), b2(b2) {}
     void Forward();
-    void Backward(float **target, float **d_input);   // target = (nHeads, d_model), d_input = (nHeads, d_model)
+    void Backward(float **target, float **d_input);   // target = (num_tokens, d_model), d_input = (num_tokens, d_model)
 };
 
 void FeedForward::Forward() {
     // Prep for second linear
-    for (int i = 0; i < nHeads; ++i) {
+    for (int i = 0; i < num_tokens; ++i) {
         for (int j = 0; j < d_model; ++j) output[i][j] = b2[i];
     }
 
-    for (int i = 0; i < nHeads; ++i) {
+    for (int i = 0; i < num_tokens; ++i) {
         for (int j = 0; j < d_ff; ++j) {
             // first linear
             hidden[i][j] = b1[i];
@@ -46,8 +46,8 @@ void FeedForward::Forward() {
 void FeedForward::Backward(float **target, float **d_input) {
     // d_output = target / (output * total)
     // d_b2[i] = d_output[i].sum()
-    int total = nHeads * d_model;
-    for (int i = 0; i < nHeads; ++i) {
+    int total = num_tokens * d_model;
+    for (int i = 0; i < num_tokens; ++i) {
         float d_b2 = 0;
         for (int j = 0; j < d_model; ++j) {
             d_output[i][j] = target[i][j] / (output[i][j] * total);
@@ -60,14 +60,14 @@ void FeedForward::Backward(float **target, float **d_input) {
     for (int i = 0; i < d_ff; ++i) {
         for (int j = 0; j < d_model; ++j) {
             float d_W_out = 0;
-            for (int k = 0; k < nHeads; ++k) d_W_out += hidden[k][i] * d_output[k][j];
+            for (int k = 0; k < num_tokens; ++k) d_W_out += hidden[k][i] * d_output[k][j];
             W_out[i][j] -= learning_rate * d_W_out;
         }
     }
 
     // d_hidden = (hidden > 0) x (d_output * Transpose(W_out))
     // d_b1[i] = d_hidden[i].sum()
-    for (int i = 0; i < nHeads; ++i) {
+    for (int i = 0; i < num_tokens; ++i) {
         float d_b1 = 0;
         for (int j = 0; j < d_ff; ++j) {
             d_hidden[i][j] = 0;
@@ -82,13 +82,13 @@ void FeedForward::Backward(float **target, float **d_input) {
     for (int i = 0; i < d_model; ++i) {
         for (int j = 0; j < d_ff; ++j) {
             float d_W_in = 0;
-            for (int k = 0; k < nHeads; ++k) d_W_in += d_hidden[k][j] * input[k][i];
+            for (int k = 0; k < num_tokens; ++k) d_W_in += d_hidden[k][j] * input[k][i];
             W_in[i][j] -= learning_rate * d_W_in;
         }
     }
 
     // d_input = d_hidden * Transpose(W_in)
-    for (int i = 0; i < nHeads; ++i) {
+    for (int i = 0; i < num_tokens; ++i) {
         for (int j = 0; j < d_model; ++j) {
             d_input[i][j] = 0;
             for (int k = 0; k < d_ff; ++k) d_input[i][j] += d_hidden[i][k] * W_in[j][k];
@@ -144,26 +144,26 @@ void FeedForward::Backward(float **target, float **d_input) {
 //     cout.precision(2);
 
 //     float **input, **output, **W_in, **W_out, *b1, *b2, **target, **d_input;
-//     makeMatrix(input, nHeads, d_model, dis, gen);
-//     makeMatrix(output, nHeads, d_model);
+//     makeMatrix(input, num_tokens, d_model, dis, gen);
+//     makeMatrix(output, num_tokens, d_model);
 //     makeMatrix(W_in, d_model, d_ff, dis, gen);
 //     makeMatrix(W_out, d_ff, d_model, dis, gen);
-//     makeArray(b1, nHeads, dis, gen);
-//     makeArray(b2, nHeads, dis, gen);
-//     makeMatrix(target, nHeads, d_model, dis, gen);
-//     makeMatrix(d_input, nHeads, d_model);
+//     makeArray(b1, num_tokens, dis, gen);
+//     makeArray(b2, num_tokens, dis, gen);
+//     makeMatrix(target, num_tokens, d_model, dis, gen);
+//     makeMatrix(d_input, num_tokens, d_model);
 
 //     cout << "Input:\n";
-//     printMatrix(input, nHeads, d_model);
+//     printMatrix(input, num_tokens, d_model);
 //     cout << "Target:\n";
-//     printMatrix(target, nHeads, d_model);
+//     printMatrix(target, num_tokens, d_model);
 //     cout << "W_in:\n";
 //     printMatrix(W_in, d_model, d_ff);
 //     cout << "W_out:\n";
 //     printMatrix(W_out, d_ff, d_model);
 //     cout << "Biases:\n";
-//     printArray(b1, nHeads);
-//     printArray(b2, nHeads);
+//     printArray(b1, num_tokens);
+//     printArray(b2, num_tokens);
 
 //     FeedForward ff(input, output, W_in, W_out, b1, b2);
 //     ff.Forward();
@@ -171,7 +171,7 @@ void FeedForward::Backward(float **target, float **d_input) {
 //          << "                 After forward:\n"
 //          << "##############################################\n\n"
 //          << "Output:\n";
-//     printMatrix(output, nHeads, d_model);
+//     printMatrix(output, num_tokens, d_model);
 
 //     ff.Backward(target, d_input);
 //     cout << "##############################################\n"
@@ -182,17 +182,17 @@ void FeedForward::Backward(float **target, float **d_input) {
 //     cout << "W_out:\n";
 //     printMatrix(W_out, d_ff, d_model);
 //     cout << "Biases:\n";
-//     printArray(b1, nHeads);
-//     printArray(b2, nHeads);
+//     printArray(b1, num_tokens);
+//     printArray(b2, num_tokens);
 //     cout << "\nd_input:\n";
-//     printMatrix(d_input, nHeads, d_model);
+//     printMatrix(d_input, num_tokens, d_model);
 
-//     deleteMatrix(input, nHeads);
-//     deleteMatrix(output, nHeads);
+//     deleteMatrix(input, num_tokens);
+//     deleteMatrix(output, num_tokens);
 //     deleteMatrix(W_in, d_model);
 //     deleteMatrix(W_out, d_ff);
 //     deleteArray(b1);
 //     deleteArray(b2);
-//     deleteMatrix(target, nHeads);
-//     deleteMatrix(d_input, nHeads);
+//     deleteMatrix(target, num_tokens);
+//     deleteMatrix(d_input, num_tokens);
 // }
