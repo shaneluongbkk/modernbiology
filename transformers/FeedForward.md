@@ -3,6 +3,9 @@
 ### Overview
 The `FeedForward.cpp` file implements a FeedForward neural network layer, which is commonly used in deep learning architectures like Transformers. The layer includes forward propagation and backward propagation for training. It is designed to work with multiple attention heads (nHeads) and processes data through two linear layers with a ReLU activation in between.
 
+```math
+FFW = \max(0, x \cdot W_1 + b_1) \cdot W_2 + b_2
+```
 ## Constants and Variables
 ### Constants
 - `d_model`: Size of the model input/output vector (200)
