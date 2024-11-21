@@ -29,23 +29,31 @@ This README provides an overview of the Add&Norm Layer implementation, focusing 
 ### 1. `forward()`
 
 Computes the **forward pass** for the Add&Norm layer:
-
-$\text{output} = \text{LayerNorm}(\text{prev} + \text{orig})$
+```math
+\text{output} = \text{LayerNorm}(\text{prev} + \text{orig})
+```
 
 #### Steps:
 - Residual connection: Adds `prev` and `orig`.
-
-    $w_{i,j} = \text{prev}_{i,j} + \text{orig}_{i,j}$
+```math
+w_{i,j} = \text{prev}_{i,j} + \text{orig}_{i,j}
+```
 
 - Computes the mean (mu) and standard deviation (sigma) of the inputs.
 
-    $\mu_{i} = \frac{1}{N} \sum_{j=0}^{N-1} w_{i,j}$
+    ```math
+    \mu_{i} = \frac{1}{N} \sum_{j=0}^{N-1} w_{i,j}
+    ```
 
-    $\sigma^2_{i} = \frac{1}{N} \sum_{j=0}^{N-1} w_{i,j}^2 - \mu_{i}^2$
+    ```math
+    \sigma^2_{i} = \frac{1}{N} \sum_{j=0}^{N-1} w_{i,j}^2 - \mu_{i}^2
+    ```
 
 - Normalizes and scales the inputs using `gamma` and `beta`.
 
-    $w_{i,j} = \gamma[i] \cdot \frac{w_{i,j} - \mu_{i}}{\sigma_{i}} + \beta_{i}$
+    ```math
+    w_{i,j} = \gamma[i] \cdot \frac{w_{i,j} - \mu_{i}}{\sigma_{i}} + \beta_{i}
+    ```
 
 **Returns:** The normalized matrix `w` (size: `num_words x N`).
 
@@ -56,38 +64,50 @@ $dy$: Gradient matrix for original input, $lrate$: learning rate.
 Implements the **backward pass** for gradient updates:
 
 1. Calculates:
-   -  Gradients for `gamma` and `beta`.
+-  Gradients for `gamma` and `beta`.
 
-        $\frac{\partial L}{\partial \gamma_{i}} = \sum_{j=0}^{N-1} \text{dy}_{i,j} \cdot w_{i,j}$
+```math
+\frac{\partial L}{\partial \gamma_{i}} = \sum_{j=0}^{N-1} \text{dy}_{i,j} \times w_{i,j}
+```
 
-        $\frac{\partial L}{\partial \beta_{i}} = \sum_{j=0}^{N-1} \text{dy}_{i,j}$
+```math
+\frac{\partial L}{\partial \beta_{i}} = \sum_{j=0}^{N-1} \text{dy}_{i,j}
+```
 
-   - Jacobian matrix the normalization operation.
+- Jacobian matrix the normalization operation.
 
-        $
-        \mathcal{J}_{i,j} =
-        \begin{cases} 
-        -\frac{1 + (z_i^{(n)} - \mu)(z_j^{(n)} - \mu)}{\sigma^2} & \text{if } i \neq j \\[10pt]
-        N - 1 - \frac{(z_i^{(n)} - \mu)^2}{\sigma^2} & \text{if } i = j
-        \end{cases}
-        $
+```math
+\mathcal{J}_{i,j} =
+\begin{cases} 
+-\frac{1 + (z_i^{(n)} - \mu)(z_j^{(n)} - \mu)}{\sigma^2} & \text{if } i \neq j \\[10pt]
+N - 1 - \frac{(z_i^{(n)} - \mu)^2}{\sigma^2} & \text{if } i = j
+\end{cases}
+```
 
-        $
-        \mathcal{J} = N I_N - 1_{N\times N} - w^{(n)} \otimes w^{(n)}
-        $
+```math
+\mathcal{J} = N I_N - 1_{N\times N} - w^{(n)} \otimes w^{(n)}
+```
 
-        Where $\mathbf{I}_N$ is the identity matrix, $1_{N\times N}$ is the $N\times N$ matrix filled with 1s and $\otimes$ is the outer product. 
+Where $I_{N}$ is the identity matrix, $1_{N\times N}$ is the $N\times N$ matrix filled with 1s and $\otimes$ is the outer product. 
 
 2. Updates `gamma` and `beta` using gradient descent.
 
-    $\gamma_{i} -= \text{lrate} \times \frac{\partial \mathcal{L}}{\partial \gamma_{i}}$
+```math
+\gamma_{i} -= \text{lrate} \times \frac{\partial \mathcal{L}}{\partial \gamma_{i}}
+```
 
-    $\beta{i} -= \text{lrate} \times \frac{\partial \mathcal{L}}{\partial \beta_{i}}$
+```math
+\beta{i} -= \text{lrate} \times \frac{\partial \mathcal{L}}{\partial \beta_{i}}
+```
 
 3. Calculates matrix backward `dz` and update to `orig_grid`
-    $dz = \frac{\gamma}{N \sigma} \left( dy \times \mathcal{J} \right)$
+```math
+dz = \frac{\gamma}{N \sigma} \left( dy \times \mathcal{J} \right)
+```
 
-    $\text{orig\_ grid}+=dz$
+```math
+\text{orig\_ grid}+=dz
+```
 
 
 **Returns:** Gradient matrix `dz` for the inputs.
