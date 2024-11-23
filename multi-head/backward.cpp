@@ -115,7 +115,7 @@ void backward(float** input_embedding, int input_rows, int input_cols,
         float** d_K = allocateMatrix(input_rows, HEAD_DIM);
 
         // Backpropagate through the attention score:
-        // dQ = d_attention_scores * K^T
+        // dQ = d_attention_scores * K
         // dK = (d_attention_scores)^T * Q
         for (int i = 0; i < input_rows; ++i) {
             for (int j = 0; j < input_rows; ++j) {
