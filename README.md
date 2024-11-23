@@ -13,6 +13,11 @@
 **Backward**
 1. The derivatives of Q*K_T
 
+**Merge**
+1. Merge 3 above files into one for compactness
+
+**Merge_with_Cuda**
+1. Using cuda for matrix multiplication
 
 
 
