@@ -14,7 +14,8 @@ public:
     float **output; // (num_tokens, d_model)
     float **W_in;   // (d_model, d_ff)
     float **W_out;  // (d_ff, d_model)
-    float *b1, *b2; // (num_tokens)
+    float *b1, // (1, d_ff)
+    float *b2; // (1, d_model)
 
     FeedForward(float **input, float **output, float **W_in, float **W_out, float *b1, float *b2)
     : input(input), output(output), W_in(W_in), W_out(W_out), b1(b1), b2(b2) {}
@@ -25,13 +26,13 @@ public:
 void FeedForward::Forward() {
     // Prep for second linear
     for (int i = 0; i < num_tokens; ++i) {
-        for (int j = 0; j < d_model; ++j) output[i][j] = b2[i];
+        for (int j = 0; j < d_model; ++j) output[i][j] = b2[j];
     }
 
     for (int i = 0; i < num_tokens; ++i) {
         for (int j = 0; j < d_ff; ++j) {
             // first linear
-            hidden[i][j] = b1[i];
+            hidden[i][j] = b1[j];
             for (int k = 0; k < d_model; ++k) hidden[i][j] += input[i][k] * W_in[k][j];
 
             // ReLU
@@ -45,15 +46,13 @@ void FeedForward::Forward() {
 
 void FeedForward::Backward(float **target, float **d_input) {
     // d_output = target / (output * total)
-    // d_b2[i] = d_output[i].sum()
+    // d_b2[j] = d_output[j].sum()
     int total = num_tokens * d_model;
     for (int i = 0; i < num_tokens; ++i) {
-        float d_b2 = 0;
         for (int j = 0; j < d_model; ++j) {
             d_output[i][j] = target[i][j] / (output[i][j] * total);
-            d_b2 += d_output[i][j];
+           b2[j] -= learning_rate * d_output[i][j];
         }
-        b2[i] -= learning_rate * d_b2;
     }
 
     // d_W_out = Transpose(hidden) * d_output
@@ -66,16 +65,14 @@ void FeedForward::Backward(float **target, float **d_input) {
     }
 
     // d_hidden = (hidden > 0) x (d_output * Transpose(W_out))
-    // d_b1[i] = d_hidden[i].sum()
+    // d_b1[j] = d_hidden[j].sum()
     for (int i = 0; i < num_tokens; ++i) {
-        float d_b1 = 0;
         for (int j = 0; j < d_ff; ++j) {
             d_hidden[i][j] = 0;
             if (hidden[i][j] <= 0) continue;
             for (int k = 0; k < d_model; ++k) d_hidden[i][j] += d_output[i][k] * W_out[j][k];
-            d_b1 += d_hidden[i][j];
+            b1[j] -= learning_rate * d_hidden[i][j];
         }
-        b1[i] -= learning_rate * d_b1;
     }
 
     // d_W_in = Transpose(input) * d_hidden
