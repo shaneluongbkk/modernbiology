@@ -14,7 +14,7 @@ public:
     float **output; // (num_tokens, d_model)
     float **W_in;   // (d_model, d_ff)
     float **W_out;  // (d_ff, d_model)
-    float *b1, // (1, d_ff)
+    float *b1; // (1, d_ff)
     float *b2; // (1, d_model)
 
     FeedForward(float **input, float **output, float **W_in, float **W_out, float *b1, float *b2)
@@ -26,7 +26,8 @@ public:
 void FeedForward::Forward() {
     // Prep for second linear
     for (int i = 0; i < num_tokens; ++i) {
-        for (int j = 0; j < d_model; ++j) output[i][j] = b2[j];
+        for (int j = 0; j < d_model; ++j) 
+            output[i][j] = b2[j];
     }
 
     for (int i = 0; i < num_tokens; ++i) {
@@ -46,12 +47,12 @@ void FeedForward::Forward() {
 
 void FeedForward::Backward(float **target, float **d_input) {
     // d_output = target / (output * total)
-    // d_b2[j] = d_output[j].sum()
+    // d_b2[j] -= d_output[*][j].sum()*lr
     int total = num_tokens * d_model;
-    for (int i = 0; i < num_tokens; ++i) {
-        for (int j = 0; j < d_model; ++j) {
+    for (int j = 0; j < d_model; ++j) {
+        for (int i = 0; i < num_tokens; ++i) {
             d_output[i][j] = target[i][j] / (output[i][j] * total);
-           b2[j] -= learning_rate * d_output[i][j];
+            b2[j] -= learning_rate * d_output[i][j];
         }
     }
 
@@ -65,9 +66,9 @@ void FeedForward::Backward(float **target, float **d_input) {
     }
 
     // d_hidden = (hidden > 0) x (d_output * Transpose(W_out))
-    // d_b1[j] = d_hidden[j].sum()
-    for (int i = 0; i < num_tokens; ++i) {
-        for (int j = 0; j < d_ff; ++j) {
+    // d_b1[j] -= d_hidden[*][j].sum()*lr
+    for (int j = 0; j < d_ff; ++j) {
+        for (int i = 0; j < num_tokens; ++i) {
             d_hidden[i][j] = 0;
             if (hidden[i][j] <= 0) continue;
             for (int k = 0; k < d_model; ++k) d_hidden[i][j] += d_output[i][k] * W_out[j][k];
