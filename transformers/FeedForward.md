@@ -11,7 +11,7 @@ The `FeedForward.cpp` file implements a FeedForward neural network layer, which 
 ### Variables
 - `input`, `output`: Input and output matrices with size of (`num_tokens`, `d_model`)
 - `W_in`, `W_out`: Weight matrices for the input and output transformations with size of (`d_model`, `d_ff`) and (`d_ff`, `d_model`), respectively
-- `b1`, `b2`: Bias vectors with size of (`num_tokens`)
+- `b1`, `b2`: Bias vectors with size of (`d_ff`),(`d_model`)
 - `hidden` **(private)**: Intermediate matrix to store the ReLU output
 - `d_output`, `d_hidden` **(private)**: Gradient matrices for backpropagation.
 
@@ -45,7 +45,7 @@ Computes the backward pass given the target layer and save the gradient of loss 
 #### Parameters
 `target`, `d_input`: Target matrix and gradient of the loss with respect to the input, both with size of (`num_tokens`, `d_model`)
 #### Theories:
-Let $`Y`$, $`\hat{Y}`$, $`H`$ and $`X`$ be the target matrix, output matrix, hidden matrix and input matrix, respectively. Recall that
+Let $`Y`$, $`\hat{Y}`$, $`H`$ and $`X`$ be the output matrix, target matrix, hidden matrix and input matrix, respectively. Recall that
 ```math
 H = \max(0, X \cdot W_{in} + b_1)
 ```
@@ -63,11 +63,11 @@ Let $`m = \text{num\_tokens}`$ and $`n = d_{model}`$. Assuming the loss function
 
 - $b_2$'s derivative:
 ```math
- \frac{\partial b_{2_{i}}}{\partial L} = \frac{\partial b_{2_{i}}}{\partial Y_i} \cdot \frac{\partial Y_i}{\partial L}
-= 1^{(1 \times m)} \cdot \frac{\partial Y_i}{\partial L}
+ \frac{\partial b_{2_{i}}}{\partial L} = \frac{\partial b_{2_{i}}}{\partial Y_{*i}} \cdot \frac{\partial Y_{*i}}{\partial L}
+= 1^{(1 \times m)} \cdot \Big(\frac{\partial Y}{\partial L}\Big)_{*i}
 ```
 ```math
-\boxed{= \sum \frac{\partial Y_{ij}}{\partial L}}
+\boxed{= \sum_{j = 1}^{m} \frac{\partial Y_{ji}}{\partial L}}
 ```
 
 - Denote $M_{*n}$ be the $n^\text{th}$ column vector of some matrix $M$, then $W_{out}$'s derivative:
@@ -92,10 +92,10 @@ Let $`m = \text{num\_tokens}`$ and $`n = d_{model}`$. Assuming the loss function
 
 - $b_1$'s derivative:
 ```math
-\frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_i} \cdot \frac{\partial M_i}{\partial L} = 1^{(1 \times p)} \cdot \frac{\partial M}{\partial L} 
+\frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_{*i}} \cdot \frac{\partial M_{*i}}{\partial L} = 1^{(1 \times m)} \cdot \Big(\frac{\partial M}{\partial L}\Big)_{*i}
 ```
 ```math
-\boxed{= \sum \frac{\partial M_{ij}}{\partial L}}
+\boxed{= \sum_{j = 1}^{m} \frac{\partial M_{ji}}{\partial L}}
 ```
 
 - $W_{in}$'s derivative:
