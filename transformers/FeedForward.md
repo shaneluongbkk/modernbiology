@@ -6,12 +6,12 @@ The `FeedForward.cpp` file implements a FeedForward neural network layer, which 
 ### Constants
 - `d_model`: Size of the model input/output vector (200)
 - `d_ff`: Size of the hidden layer (800)
-- `num_tokens`: Number of attention heads (8)
+- `num_tokens`: Number of tokens/words (8)
 - `learning_rate`: Learning rate for weight and bias updates (0.1)
 ### Variables
 - `input`, `output`: Input and output matrices with size of (`num_tokens`, `d_model`)
 - `W_in`, `W_out`: Weight matrices for the input and output transformations with size of (`d_model`, `d_ff`) and (`d_ff`, `d_model`), respectively
-- `b1`, `b2`: Bias vectors with size of (`d_ff`),(`d_model`)
+- `b1`, `b2`: Bias vectors with size of (`d_ff`) and (`d_model`) respectively
 - `hidden` **(private)**: Intermediate matrix to store the ReLU output
 - `d_output`, `d_hidden` **(private)**: Gradient matrices for backpropagation.
 
@@ -41,9 +41,9 @@ The `hidden` and `output` layer are saved for backward pass.
 ```cpp
 void Backward(float **target, float **d_input);
 ```
-Computes the backward pass given the target layer and save the gradient of loss with respect to the input.
+Computes the backward pass given the `target` layer and save the gradient of loss with respect to input into `d_input`.
 #### Parameters
-`target`, `d_input`: Target matrix and gradient of the loss with respect to the input, both with size of (`num_tokens`, `d_model`)
+`target`, `d_input`: Target matrix and gradient of loss with respect to input, both with size of (`num_tokens`, `d_model`)
 #### Theories:
 Let $`Y`$, $`\hat{Y}`$, $`H`$ and $`X`$ be the output matrix, target matrix, hidden matrix and input matrix, respectively. Recall that
 ```math
@@ -61,16 +61,16 @@ Let $`m = \text{num\_tokens}`$ and $`n = d_{model}`$. Assuming the loss function
  \frac{\partial Y}{\partial L} = \frac{\hat{Y}}{mnY}
 ```
 
-- $b_2$'s derivative:
+- Denote $M_{*n}$ be the $n^\text{th}$ column vector of some matrix $M$, then $b_2$'s derivative:
 ```math
  \frac{\partial b_{2_{i}}}{\partial L} = \frac{\partial b_{2_{i}}}{\partial Y_{*i}} \cdot \frac{\partial Y_{*i}}{\partial L}
-= 1^{(1 \times m)} \cdot \Big(\frac{\partial Y}{\partial L}\Big)_{*i}
+= 1^{(1 \times m)} \cdot \frac{\partial Y_{*i}}{\partial L}
 ```
 ```math
-\boxed{= \sum_{j = 1}^{m} \frac{\partial Y_{ji}}{\partial L}}
+\boxed{= \sum \frac{\partial Y_{ji}}{\partial L}}
 ```
 
-- Denote $M_{*n}$ be the $n^\text{th}$ column vector of some matrix $M$, then $W_{out}$'s derivative:
+- $W_{out}$'s derivative:
 ```math
 \frac{\partial W_{2_{ij}}}{\partial L} = \frac{\partial W_{2_{ij}}}{\partial Y_{*j}} 
 \cdot \frac{\partial Y_{*j}}{\partial L} = (H^T)_i \cdot \frac{\partial Y_{*j}}{\partial L}
@@ -92,10 +92,10 @@ Let $`m = \text{num\_tokens}`$ and $`n = d_{model}`$. Assuming the loss function
 
 - $b_1$'s derivative:
 ```math
-\frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_{*i}} \cdot \frac{\partial M_{*i}}{\partial L} = 1^{(1 \times m)} \cdot \Big(\frac{\partial M}{\partial L}\Big)_{*i}
+\frac{\partial b_{1_i}}{\partial L} = \frac{\partial b_{1_i}}{\partial M_{*i}} \cdot \frac{\partial M_{*i}}{\partial L} = 1^{(1 \times m)} \cdot \frac{\partial M_{*i}}{\partial L} 
 ```
 ```math
-\boxed{= \sum_{j = 1}^{m} \frac{\partial M_{ji}}{\partial L}}
+\boxed{= \sum \frac{\partial M_{ji}}{\partial L}}
 ```
 
 - $W_{in}$'s derivative:
