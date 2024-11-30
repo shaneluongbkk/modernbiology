@@ -6,34 +6,56 @@
 #include <string>
 #include <algorithm>
 #include <bits/stdc++.h>
+// Define size of embedding vector and output file path
 #define EMBED_SIZE 300
-// Because I didnt have the full model to test the back propaganation, 
-// so I created a function to make a random one-hot coding, you can skip it later
-float** generate_random_input(int num_tokens) {
-    float** input = new float*[num_tokens];
-    for (int i = 0; i < num_tokens; ++i) {
-        input[i] = new float[EMBED_SIZE];
-        for (int j = 0; j < EMBED_SIZE; ++j) {
-            input[i][j] = static_cast<float>(rand()) / RAND_MAX;  // Random float between 0 and 1
+const std::string DICT_PATH = "output.txt";
+
+// Count number of words in dict
+long line_count_dict(){
+    std::ifstream dict_file(DICT_PATH);
+    if (!dict_file) {
+        std::cerr << "Không thể mở file.\n";
+        return 0;
+    }
+
+    int count = 0;
+    std::string line;
+    while (std::getline(dict_file, line)) {
+        count++;
+    }
+return count;
+}
+
+// Creating one hot vector from a distributed one
+float* one_hot_coding(float* input){
+    float max = input[0];
+    long index = 0;
+    for (int i = 0; i < line_count_dict(); i++) {
+        if (input[i] > max) {
+            max = input[i];
+            index = i;
         }
     }
-    return input;
-}
+    float* one_hot = new float[line_count_dict()];
+    for (int i=0; i<line_count_dict(); i++){
+        if (i!=index){ one_hot[i]=0;}
+        else one_hot[i]=1;
+    }
+return one_hot;
+}     
 // Cross-entropy in which "input" is the output of the previous layer, 
-// "target" is the one hot coding matrix from test file
-float cross_entropy_loss(float** input, float** target, int num_tokens, int embed_size) {
+// "one_hot" is the one hot coding vector from test file
+float cross_entropy_loss(float* input, float* one_hot, int num_tokens, int embed_size) {
     float loss = 0.0;
     for (int i = 0; i < num_tokens; ++i) {
-        for (int j = 0; j < embed_size; ++j) {
-            if (input[i][j] > 0) {  
-                loss -= target[i][j] * std::log(input[i][j]);
+            if (input[i] > 0) {  
+                loss -= one_hot[i] * std::log(input[i]);
             }
         }
-    }
     return loss / num_tokens; 
 }
 
-// Hàm giải phóng bộ nhớ
+// Free disk
 void free_matrix(float** matrix, int num_rows) {
     for (int i = 0; i < num_rows; ++i) {
         delete[] matrix[i];
