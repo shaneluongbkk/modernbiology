@@ -54,7 +54,6 @@ class Encoder(nn.Module):
         return z_mean, z_var, l_mean, l_var
 
 class Decoder(nn.Module):
-
     def __init__(self, n_latent, n_layers=1, n_hidden=128, output_dim=None, dropout_rate=0.1):
         super().__init__()
         
