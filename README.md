@@ -1,4 +1,3 @@
-# Deep Learning - Modern Biology Study Group 2
 # Single-cell Variational Inference (scVI) Implementation
 
 scVI is a variational autoencoder that learns a probabilistic representation of gene expression data, enabling various downstream tasks such as dimensionality reduction, clustering, and differential expression analysis.
@@ -37,27 +36,24 @@ Main model class that combines encoder and decoder
 #### 4.1 `ZINBLoss`
 Implements Zero-Inflated Negative Binomial loss function
 A mixture model combining:
- • Negative Binomial (NB) for count data
- • Bernoulli for excess zeros
-- **Methods**:
-  - `negative_binomial_loss()`: Computes NB loss
-  - `__call__()`: Combines NB loss with zero-inflation
-  \[ P(X = k) = \begin{cases} 
-\pi + (1 - \pi) f_{NB}(0), & \text{if } k = 0 \\
-(1 - \pi) f_{NB}(k), & \text{if } k > 0
-\end{cases} \]
+- Negative Binomial (NB) for count data
+- Bernoulli for excess zeros
 
+**Formula:**
+```
+P(X = k) =
+  \pi + (1 - \pi) f_NB(0), if k = 0
+  (1 - \pi) f_NB(k),       if k > 0
+```
 - \(\pi\): Dropout probability.
 
 #### 4.2 `KL Loss`
 KL Loss measures the difference between the learned latent distribution \( q(z|x) \) and a prior distribution \( p(z) \) (for latent space and library size)
 
-The formula for KL divergence is:
-
-\[
-\text{KL}(q(z|x) \| p(z)) = -\frac{1}{2} \sum_{j=1}^J \left(1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)
-\]
-
+**Formula:**
+```
+KL(q(z|x) || p(z)) = -\frac{1}{2} \sum_{j=1}^J \left(1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)
+```
 where:
 - \( \mu_j \): Mean of the learned latent distribution for dimension \( j \).
 - \( \sigma_j^2 \): Variance of the learned latent distribution for dimension \( j \).
@@ -79,7 +75,7 @@ Handles model training and validation
   - `use_gpu`: Whether to use GPU (default: True)
   - `kl_weight`: Weight for KL divergence term (default: 1.0)
 
-### Helper Functions, prepare random data just use for testing SCVI model
+### Helper Functions
 
 #### `prepare_data()`
 Preprocesses single-cell RNA data:
@@ -101,8 +97,3 @@ The model expects input data as an AnnData object containing:
 - Raw count matrix in `.X`
 - Gene names in `.var`
 - Cell metadata in `.obs`
-
-
-
-
-   
